@@ -1,6 +1,13 @@
 /* eslint-disable @typescript-eslint/no-base-to-string */
 import { CommonModule } from '@angular/common';
-import { Component, Inject, Input, OnInit, Optional } from '@angular/core';
+import {
+    Component,
+    inject,
+    Inject,
+    Input,
+    OnInit,
+    Optional,
+} from '@angular/core';
 import {
     FormArray,
     FormBuilder,
@@ -72,11 +79,11 @@ export class SettingsComponent implements OnInit {
     languageEnum = Language;
 
     /** Flag that indicates whether the app runs in electron environment */
-    isTauri = this.electronService.getAppEnvironment() === 'tauri';
+    isTauri = this.dataService.getAppEnvironment() === 'tauri';
 
-    isPwa = this.electronService.getAppEnvironment() === 'pwa';
+    isPwa = this.dataService.getAppEnvironment() === 'pwa';
 
-    electronPlayers = [
+    osPlayers = [
         {
             id: VideoPlayer.MPV,
             label: 'MPV Player',
@@ -97,8 +104,15 @@ export class SettingsComponent implements OnInit {
             id: VideoPlayer.VideoJs,
             label: 'VideoJs Player',
         },
-        ...this.electronPlayers,
-        /* ...(this.isTauri ? this.electronPlayers : []), */
+        /* {
+            id: VideoPlayer.DPlayer,
+            label: 'DPlayer',
+        },
+        {
+            id: VideoPlayer.ArtPlayer,
+            label: 'ArtPlayer',
+        }, */
+        ...(this.isTauri ? this.osPlayers : []),
     ];
 
     /** Current version of the app */
@@ -129,13 +143,15 @@ export class SettingsComponent implements OnInit {
     /** Form array with epg sources */
     epgUrl = this.settingsForm.get('epgUrl') as FormArray;
 
+    private settingsStore = inject(SettingsStore);
+
     /**
      * Creates an instance of SettingsComponent and injects
      * required dependencies into the component
      */
     constructor(
         private dialogService: DialogService,
-        public electronService: DataService,
+        public dataService: DataService,
         private epgService: EpgService,
         private formBuilder: FormBuilder,
         private playlistsService: PlaylistsService,
@@ -145,7 +161,6 @@ export class SettingsComponent implements OnInit {
         private store: Store,
         private translate: TranslateService,
         private matDialog: MatDialog,
-        private settingsStore: SettingsStore,
         @Optional() @Inject(MAT_DIALOG_DATA) data?: { isDialog: boolean }
     ) {
         this.isDialog = data?.isDialog ?? false;
@@ -163,8 +178,8 @@ export class SettingsComponent implements OnInit {
     /**
      * Sets saved settings from the indexed db store
      */
-    setSettings(): void {
-        const currentSettings = this.settingsStore.getSettings()();
+    setSettings() {
+        const currentSettings = this.settingsStore.getSettings();
         this.settingsForm.patchValue(currentSettings);
 
         if (this.isTauri && currentSettings.epgUrl) {
@@ -180,7 +195,9 @@ export class SettingsComponent implements OnInit {
         const URL_REGEX = /^(http|https|file):\/\/[^ "]+$/;
 
         const urls = Array.isArray(epgUrls) ? epgUrls : [epgUrls];
-        const filteredUrls = urls.filter((url) => url !== '');
+        const filteredUrls = urls
+            .map((url) => url.trim())
+            .filter((url) => url !== '');
 
         filteredUrls.forEach((url) => {
             this.epgUrl.push(
@@ -229,7 +246,7 @@ export class SettingsComponent implements OnInit {
      * @returns returns true if an update is available
      */
     isCurrentVersionOutdated(latestVersion: string): boolean {
-        this.version = this.electronService.getAppVersion();
+        this.version = this.dataService.getAppVersion();
         return semver.lt(this.version, latestVersion);
     }
 
@@ -240,17 +257,17 @@ export class SettingsComponent implements OnInit {
     onSubmit(): void {
         this.settingsStore.updateSettings(this.settingsForm.value).then(() => {
             this.applyChangedSettings();
-            this.electronService.sendIpcEvent(
+            this.dataService.sendIpcEvent(
                 SETTINGS_UPDATE,
                 this.settingsForm.value
             );
 
-            this.electronService.sendIpcEvent(
+            this.dataService.sendIpcEvent(
                 SET_MPV_PLAYER_PATH,
                 this.settingsForm.value.mpvPlayerPath
             );
 
-            this.electronService.sendIpcEvent(
+            this.dataService.sendIpcEvent(
                 SET_VLC_PLAYER_PATH,
                 this.settingsForm.value.mpvPlayerPath
             );
@@ -313,7 +330,14 @@ export class SettingsComponent implements OnInit {
      * Initializes new entry in form array for EPG URL
      */
     addEpgSource(): void {
-        this.epgUrl.insert(this.epgUrl.length, new FormControl(''));
+        this.epgUrl.insert(
+            this.epgUrl.length,
+            new FormControl('', {
+                validators: [
+                    Validators.pattern(/^(http|https|file):\/\/[^ "]+$/),
+                ],
+            })
+        );
     }
 
     /**

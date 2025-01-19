@@ -1,5 +1,7 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
+import { isTauri } from '@tauri-apps/api/core';
+import { xtreamRoutes } from './xtream-tauri/xtream.routes';
 
 const routes: Routes = [
     {
@@ -35,13 +37,17 @@ const routes: Routes = [
                 (c) => c.SettingsComponent
             ),
     },
-    {
-        path: 'xtreams/:id',
-        loadComponent: () =>
-            import('./xtream/xtream-main-container.component').then(
-                (c) => c.XtreamMainContainerComponent
-            ),
-    },
+    ...(isTauri()
+        ? xtreamRoutes
+        : [
+              {
+                  path: 'xtreams/:id',
+                  loadComponent: () =>
+                      import('./xtream/xtream-main-container.component').then(
+                          (c) => c.XtreamMainContainerComponent
+                      ),
+              },
+          ]),
     {
         path: 'portals/:id',
         loadComponent: () =>
@@ -56,7 +62,11 @@ const routes: Routes = [
 ];
 
 @NgModule({
-    imports: [RouterModule.forRoot(routes, {})],
+    imports: [
+        RouterModule.forRoot(routes, {
+            enableTracing: true,
+        }),
+    ],
     exports: [RouterModule],
 })
 export class AppRoutingModule {}

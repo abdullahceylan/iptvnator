@@ -6,11 +6,14 @@ import {
 import { AsyncPipe, NgFor, NgIf } from '@angular/common';
 import {
     Component,
+    ElementRef,
     EventEmitter,
+    HostListener,
     Input,
     NgZone,
     OnDestroy,
     Output,
+    ViewChild,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
@@ -28,6 +31,7 @@ import { GLOBAL_FAVORITES_PLAYLIST_ID } from '../../../../shared/constants';
 import { IpcCommand } from '../../../../shared/ipc-command.class';
 import { Playlist } from '../../../../shared/playlist.interface';
 import { DataService } from '../../services/data.service';
+import { DatabaseService } from '../../services/database.service';
 import * as PlaylistActions from '../../state/actions';
 import {
     selectActiveTypeFilters,
@@ -67,6 +71,8 @@ import { PlaylistItemComponent } from './playlist-item/playlist-item.component';
     ],
 })
 export class RecentPlaylistsComponent implements OnDestroy {
+    @ViewChild('searchQuery') searchQueryInput!: ElementRef<HTMLInputElement>;
+
     searchQuery = new BehaviorSubject('');
 
     playlists$ = combineLatest([
@@ -137,6 +143,7 @@ export class RecentPlaylistsComponent implements OnDestroy {
     ];
 
     constructor(
+        private databaseService: DatabaseService,
         private dialog: MatDialog,
         private dialogService: DialogService,
         private electronService: DataService,
@@ -224,7 +231,8 @@ export class RecentPlaylistsComponent implements OnDestroy {
      * Removes the provided playlist from the database
      * @param playlistId playlist id to remove
      */
-    removePlaylist(playlistId: string): void {
+    removePlaylist(playlistId: string) {
+        this.databaseService.deletePlaylist(playlistId);
         this.store.dispatch(PlaylistActions.removePlaylist({ playlistId }));
     }
 
@@ -265,5 +273,14 @@ export class RecentPlaylistsComponent implements OnDestroy {
 
     onSearchQueryUpdate(searchQuery: string) {
         this.searchQuery.next(searchQuery);
+    }
+
+    @HostListener('window:keydown.control.f', ['$event'])
+    @HostListener('window:keydown.meta.f', ['$event'])
+    onSearchHotkey(event: KeyboardEvent) {
+        // Prevent default browser search behavior
+        event.preventDefault();
+        event.stopPropagation();
+        this.searchQueryInput?.nativeElement?.focus();
     }
 }

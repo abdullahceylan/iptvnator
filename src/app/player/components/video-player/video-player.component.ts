@@ -9,6 +9,7 @@ import {
     OnDestroy,
     OnInit,
     effect,
+    inject,
 } from '@angular/core';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -35,7 +36,9 @@ import {
     selectChannels,
     selectCurrentEpgProgram,
 } from '../../../state/selectors';
+import { ArtPlayerComponent } from '../art-player/art-player.component';
 import { AudioPlayerComponent } from '../audio-player/audio-player.component';
+import { DPlayerComponent } from '../d-player/d-player.component';
 import { EpgListComponent } from '../epg-list/epg-list.component';
 import { HtmlVideoPlayerComponent } from '../html-video-player/html-video-player.component';
 import { InfoOverlayComponent } from '../info-overlay/info-overlay.component';
@@ -65,6 +68,8 @@ export const COMPONENT_OVERLAY_REF = new InjectionToken(
         SidebarComponent,
         ToolbarComponent,
         VjsPlayerComponent,
+        DPlayerComponent,
+        ArtPlayerComponent,
     ],
     templateUrl: './video-player.component.html',
     styleUrls: ['./video-player.component.scss'],
@@ -129,6 +134,8 @@ export class VideoPlayerComponent implements OnInit, OnDestroy {
 
     volume = 1;
 
+    private settingsStore = inject(SettingsStore);
+
     constructor(
         private activatedRoute: ActivatedRoute,
         private dataService: DataService,
@@ -138,8 +145,7 @@ export class VideoPlayerComponent implements OnInit, OnDestroy {
         private router: Router,
         private snackBar: MatSnackBar,
         private storage: StorageMap,
-        private store: Store,
-        private settingsStore: SettingsStore
+        private store: Store
     ) {
         // Initialize volume from localStorage in constructor
         const savedVolume = localStorage.getItem('volume');
@@ -266,20 +272,42 @@ export class VideoPlayerComponent implements OnInit, OnDestroy {
     /**
      * Opens the overlay with multi EPG view
      */
-    openMultiEpgView() {
-        this.overlayRef = this.overlay.create();
+    openMultiEpgView(): void {
+        const positionStrategy = this.overlay
+            .position()
+            .global()
+            .centerHorizontally()
+            .centerVertically();
+
+        this.overlayRef = this.overlay.create({
+            hasBackdrop: true,
+            positionStrategy,
+            width: '100%',
+            height: '100%',
+        });
+
         const injector = Injector.create({
             providers: [
-                { provide: COMPONENT_OVERLAY_REF, useValue: this.overlayRef },
+                {
+                    provide: COMPONENT_OVERLAY_REF,
+                    useValue: this.overlayRef,
+                },
             ],
         });
-        const componentPortal = new ComponentPortal(
+
+        const portal = new ComponentPortal(
             MultiEpgContainerComponent,
-            undefined,
+            null,
             injector
         );
-        this.overlayRef.addPanelClass('epg-overlay');
-        this.overlayRef.attach(componentPortal);
+
+        const componentRef = this.overlayRef.attach(portal);
+        componentRef.instance.playlistChannels =
+            this.store.select(selectChannels);
+
+        this.overlayRef.backdropClick().subscribe(() => {
+            this.overlayRef.dispose();
+        });
     }
 
     openUrl(url: string) {

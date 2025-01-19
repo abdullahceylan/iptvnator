@@ -1,7 +1,7 @@
 {
     "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
     "productName": "iptvnator",
-    "version": "1.0.0-4",
+    "version": "1.0.0-5",
     "identifier": "com.4gray.dev",
     "build": {
         "frontendDist": "../dist",
@@ -15,6 +15,9 @@
             "endpoints": [
                 "https://github.com/4gray/iptvnator/releases/latest/download/latest.json"
             ]
+        },
+        "sql": {
+            "preload": ["sqlite:database.db"]
         }
     },
     "app": {
@@ -97,6 +100,20 @@
             "frameworks": [],
             "providerShortName": null,
             "signingIdentity": "-"
+        },
+        "linux": {
+            "appimage": {
+                "bundleMediaFramework": true,
+                "files": {}
+            },
+            "deb": {
+                "files": {}
+            },
+            "rpm": {
+                "epoch": 0,
+                "files": {},
+                "release": "1"
+            }
         }
     }
 }
